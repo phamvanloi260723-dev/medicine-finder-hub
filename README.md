@@ -62,5 +62,5 @@ Bạn sử dụng thông tin tài khoản mặc định dưới đây để đă
 ---
 
 ## 🛑 Lưu ý thêm
-- Dự án này đã được **tách bỏ 100% kết nối Database** (như Lovable, Supabase) để chuẩn bị cho Backend tự code sau này.
+- Dự án này đã được **tách bỏ 100% kết nối Database**  để chuẩn bị cho Backend tự code sau này.
 - Khi upload ảnh và file lên, ứng dụng sẽ sinh ra Object URL (hoặc tên file dạng mock) để biểu diễn mà *không tốn không gian lưu trữ thực tế trên bất kì băng thông nào*. Ảnh có thể sẽ bị hỏng hiển thị nếu bạn copy đường link chia sẻ sang máy tính khác vì nó chỉ lưu trên bộ nhớ tạm của máy tính (hoặc LocalStorage) lúc đó.
