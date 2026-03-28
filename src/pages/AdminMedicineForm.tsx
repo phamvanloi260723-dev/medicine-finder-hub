@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft, Upload, X, FileText, ImageIcon, Save, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { checkAuthMock, getMedicineById, addMedicine, updateMedicine, Medicine } from "@/lib/mockStore";
 
 interface MedicineForm {
@@ -62,6 +63,8 @@ const AdminMedicineForm = () => {
   const [documents, setDocuments] = useState<UploadedFile[]>([]);
   const [uploadingImages, setUploadingImages] = useState(false);
   const [uploadingDocs, setUploadingDocs] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [initialLoading, setInitialLoading] = useState(false);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const docInputRef = useRef<HTMLInputElement>(null);
 
@@ -75,15 +78,18 @@ const AdminMedicineForm = () => {
   }, [id, navigate]);
 
   const loadMedicine = () => {
-    const data = getMedicineById(id!);
-    if (!data) {
-      toast({ title: "Không tìm thấy thuốc", variant: "destructive" });
-      navigate("/admin");
-      return;
-    }
-    setForm({
-      name: data.name,
-      concentration: data.concentration,
+    setInitialLoading(true);
+    // Giả lập delay loading
+    setTimeout(() => {
+      const data = getMedicineById(id!);
+      if (!data) {
+        toast({ title: "Không tìm thấy thuốc", variant: "destructive" });
+        navigate("/admin");
+        return;
+      }
+      setForm({
+        name: data.name,
+        concentration: data.concentration,
       active_ingredients: data.active_ingredients.join(", "),
       dosage_form: data.dosage_form,
       usage_instructions: data.usage_instructions,
@@ -100,15 +106,52 @@ const AdminMedicineForm = () => {
     });
     setImages(data.images || []);
     setDocuments(data.documents || []);
+    setInitialLoading(false);
+  }, 400);
   };
 
   const handleChange = (field: keyof MedicineForm, value: string) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  const fields: { key: keyof MedicineForm; label: string; type?: "textarea" }[] = [
+    { key: "name", label: "Tên thuốc" },
+    { key: "concentration", label: "Nồng độ / Hàm lượng" },
+    { key: "active_ingredients", label: "Hoạt chất (phân cách bằng dấu phẩy)" },
+    { key: "dosage_form", label: "Dạng bào chế" },
+    { key: "usage_instructions", label: "Hướng dẫn sử dụng", type: "textarea" },
+    { key: "contraindications", label: "Chống chỉ định", type: "textarea" },
+    { key: "side_effects", label: "Tác dụng phụ", type: "textarea" },
+    { key: "storage", label: "Bảo quản" },
+    { key: "shelf_life", label: "Hạn dùng" },
+    { key: "packaging", label: "Quy cách đóng gói" },
+    { key: "manufacturer", label: "Nhà sản xuất" },
+    { key: "payment_condition", label: "Điều kiện thanh toán" },
+    { key: "address", label: "Địa chỉ (Tủ)" },
+    { key: "prepared_by", label: "Người thực hiện" },
+    { key: "prepared_date", label: "Ngày thực hiện" },
+  ];
+
   const handleSave = () => {
-    if (!form.name.trim()) {
-      toast({ title: "Vui lòng nhập tên thuốc", variant: "destructive" });
+    const missingFields = fields.filter(
+      (f) => !form[f.key]?.trim()
+    );
+
+    if (missingFields.length > 0) {
+      toast({ 
+        title: "Lỗi lưu thông tin", 
+        description: `Vui lòng điền các trường còn thiếu: ${missingFields.map(f => f.label).join(", ")}`, 
+        variant: "destructive" 
+      });
       return;
     }
 
@@ -132,6 +175,8 @@ const AdminMedicineForm = () => {
       address: form.address.trim(),
       prepared_by: form.prepared_by.trim(),
       prepared_date: form.prepared_date.trim(),
+      images,
+      documents,
     };
 
     setTimeout(() => {
@@ -147,81 +192,101 @@ const AdminMedicineForm = () => {
     }, 500);
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || !isEdit) return;
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
     setUploadingImages(true);
     
-    // Mock upload
-    setTimeout(() => {
-      const newImages = Array.from(e.target.files || []).map(file => ({
-        id: Date.now().toString() + Math.random().toString(),
-        file_name: file.name,
-        file_path: "mock/" + file.name,
-        // Tạo một object URL để hiển thị ngay ảnh
-        url: URL.createObjectURL(file)
-      }));
+    try {
+      const filesArr = Array.from(e.target.files);
+      const newImages = await Promise.all(
+        filesArr.map(async (file) => {
+          const base64 = await fileToBase64(file);
+          return {
+            id: Date.now().toString() + Math.random().toString(),
+            file_name: file.name,
+            url: base64,
+          };
+        })
+      );
       
       const updatedImages = [...images, ...newImages];
-      updateMedicine(id!, { images: updatedImages });
+      if (isEdit) {
+        updateMedicine(id!, { images: updatedImages });
+      }
       setImages(updatedImages);
+      toast({ title: "Đã tải ảnh lên thành công" });
+    } catch (err) {
+      toast({ title: "Lỗi khi tải ảnh", variant: "destructive" });
+    } finally {
       setUploadingImages(false);
       if (e.target) e.target.value = "";
-    }, 1000);
+    }
   };
 
-  const handleDocUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || !isEdit) return;
+  const handleDocUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
     setUploadingDocs(true);
     
-    // Mock upload
-    setTimeout(() => {
-      const newDocs = Array.from(e.target.files || []).map(file => ({
-        id: Date.now().toString() + Math.random().toString(),
-        file_name: file.name,
-        file_path: "mock/" + file.name,
-        url: "#"
-      }));
+    try {
+      const filesArr = Array.from(e.target.files);
+      const newDocs = await Promise.all(
+        filesArr.map(async (file) => {
+          const base64 = await fileToBase64(file);
+          return {
+            id: Date.now().toString() + Math.random().toString(),
+            file_name: file.name,
+            url: base64, // Thực tế document PDF base64 là: data:application/pdf;base64,...
+          };
+        })
+      );
       
       const updatedDocs = [...documents, ...newDocs];
-      updateMedicine(id!, { documents: updatedDocs });
+      if (isEdit) {
+        updateMedicine(id!, { documents: updatedDocs });
+      }
       setDocuments(updatedDocs);
+      toast({ title: "Đã tải tài liệu lên thành công" });
+    } catch (err) {
+      toast({ title: "Lỗi khi tải tài liệu", variant: "destructive" });
+    } finally {
       setUploadingDocs(false);
       if (e.target) e.target.value = "";
-    }, 1000);
+    }
   };
 
   const handleDeleteImage = (img: UploadedFile) => {
     const updated = images.filter((i) => i.id !== img.id);
-    updateMedicine(id!, { images: updated });
+    if (isEdit) {
+      updateMedicine(id!, { images: updated });
+    }
     setImages(updated);
   };
 
   const handleDeleteDoc = (doc: UploadedFile) => {
     const updated = documents.filter((d) => d.id !== doc.id);
-    updateMedicine(id!, { documents: updated });
+    if (isEdit) {
+      updateMedicine(id!, { documents: updated });
+    }
     setDocuments(updated);
   };
 
-  const fields: { key: keyof MedicineForm; label: string; type?: "textarea" }[] = [
-    { key: "name", label: "Tên thuốc *" },
-    { key: "concentration", label: "Nồng độ / Hàm lượng" },
-    { key: "active_ingredients", label: "Hoạt chất (phân cách bằng dấu phẩy)" },
-    { key: "dosage_form", label: "Dạng bào chế" },
-    { key: "usage_instructions", label: "Hướng dẫn sử dụng", type: "textarea" },
-    { key: "contraindications", label: "Chống chỉ định", type: "textarea" },
-    { key: "side_effects", label: "Tác dụng phụ", type: "textarea" },
-    { key: "storage", label: "Bảo quản" },
-    { key: "shelf_life", label: "Hạn dùng" },
-    { key: "packaging", label: "Quy cách đóng gói" },
-    { key: "manufacturer", label: "Nhà sản xuất" },
-    { key: "payment_condition", label: "Điều kiện thanh toán" },
-    { key: "address", label: "Địa chỉ (Tủ)" },
-    { key: "prepared_by", label: "Người thực hiện" },
-    { key: "prepared_date", label: "Ngày thực hiện" },
-  ];
+  if (initialLoading) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center">
+        <Loader2 className="h-10 w-10 text-primary animate-spin mb-4" />
+        <p className="text-muted-foreground">Đang tải thông tin thuốc...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
+      {saving && (
+        <div className="fixed inset-0 z-[100] bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center">
+          <Loader2 className="h-14 w-14 text-primary animate-spin mb-4" />
+          <p className="text-xl font-semibold text-foreground">Đang lưu dữ liệu...</p>
+        </div>
+      )}
       <header className="bg-card border-b border-border">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate("/admin")}>
@@ -240,7 +305,9 @@ const AdminMedicineForm = () => {
           <div className="grid gap-4 sm:grid-cols-2">
             {fields.map((f) => (
               <div key={f.key} className={f.type === "textarea" ? "sm:col-span-2" : ""}>
-                <Label className="text-sm text-muted-foreground mb-1.5 block">{f.label}</Label>
+                <Label className="text-sm font-medium text-foreground mb-1.5 flex items-center">
+                  {f.label} <span className="text-destructive ml-1">*</span>
+                </Label>
                 {f.type === "textarea" ? (
                   <Textarea
                     value={form[f.key]}
@@ -265,9 +332,8 @@ const AdminMedicineForm = () => {
           </div>
         </div>
 
-        {/* Image uploads - only for existing medicines */}
-        {isEdit && (
-          <div className="bg-card rounded-xl border border-border p-6">
+        {/* Image uploads */}
+        <div className="bg-card rounded-xl border border-border p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
                 <ImageIcon className="h-5 w-5 text-primary" /> Hình ảnh thuốc
@@ -303,26 +369,35 @@ const AdminMedicineForm = () => {
                 <p className="text-sm">Nhấn để tải ảnh lên</p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                 {images.map((img) => (
-                  <div key={img.id} className="relative group rounded-xl overflow-hidden border border-border">
-                    <img src={img.url} alt={img.file_name} className="w-full h-40 object-cover" />
-                    <button
-                      onClick={() => handleDeleteImage(img)}
-                      className="absolute top-2 right-2 bg-foreground/70 text-background rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  <div key={img.id} className="relative group rounded-xl overflow-hidden border border-border block hover:shadow-lg transition-all duration-300">
+                    <button 
+                      onClick={() => setPreviewImage(img.url)}
+                      className="block w-full h-full text-left"
                     >
-                      <X className="h-3 w-3" />
+                      <img 
+                        src={img.url} 
+                        alt={img.file_name} 
+                        className="w-full h-auto sm:h-40 object-cover transition-transform duration-500 group-hover:scale-110" 
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 pointer-events-none" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteImage(img); }}
+                      className="absolute top-2 right-2 bg-foreground/70 text-background rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:bg-destructive"
+                      title="Xoá hình ảnh"
+                    >
+                      <X className="h-4 w-4" />
                     </button>
                   </div>
                 ))}
               </div>
             )}
           </div>
-        )}
-
+        
         {/* Document uploads */}
-        {isEdit && (
-          <div className="bg-card rounded-xl border border-border p-6">
+        <div className="bg-card rounded-xl border border-border p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-base font-semibold text-foreground flex items-center gap-2">
                 <FileText className="h-5 w-5 text-primary" /> Giấy tờ / Tài liệu
@@ -351,7 +426,7 @@ const AdminMedicineForm = () => {
             </div>
             {documents.length === 0 ? (
               <div
-                className="border-2 border-dashed border-border rounded-xl p-10 text-center text-muted-foreground cursor-pointer hover:border-primary/40 transition-colors"
+                className="border-2 border-dashed border-border rounded-xl p-6 sm:p-10 text-center text-muted-foreground cursor-pointer hover:border-primary/40 transition-colors"
                 onClick={() => docInputRef.current?.click()}
               >
                 <FileText className="h-10 w-10 mx-auto mb-2 text-muted-foreground/50" />
@@ -360,37 +435,47 @@ const AdminMedicineForm = () => {
             ) : (
               <div className="space-y-2">
                 {documents.map((doc) => (
-                  <div key={doc.id} className="flex items-center justify-between bg-secondary rounded-lg px-4 py-3">
+                  <div key={doc.id} className="flex items-center justify-between bg-secondary/50 border border-transparent rounded-xl px-3 sm:px-4 py-3 hover:bg-secondary hover:border-border transition-all duration-300">
                     <a
                       href={doc.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-3 hover:text-primary transition-colors"
+                      className="flex items-center gap-3 hover:text-primary transition-colors text-left flex-1 min-w-0"
                     >
-                      <FileText className="h-5 w-5 text-primary" />
-                      <span className="text-sm font-medium text-foreground truncate max-w-xs">
+                      <div className="p-2 sm:p-2.5 bg-background rounded-lg shadow-sm text-muted-foreground transition-all shrink-0">
+                        <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
+                      </div>
+                      <span className="text-sm sm:text-base font-medium text-foreground block line-clamp-1 max-w-[200px] sm:max-w-xs transition-colors">
                         {doc.file_name}
                       </span>
                     </a>
                     <button
                       onClick={() => handleDeleteDoc(doc)}
-                      className="text-muted-foreground hover:text-destructive transition-colors"
+                      className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors ml-2 flex-shrink-0"
+                      title="Xoá tài liệu"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-4 w-4 sm:h-5 sm:w-5" />
                     </button>
                   </div>
                 ))}
               </div>
             )}
           </div>
-        )}
 
-        {!isEdit && (
-          <p className="text-sm text-muted-foreground text-center">
-            💡 Lưu thuốc trước, sau đó bạn có thể thêm hình ảnh và tài liệu.
-          </p>
-        )}
+
       </div>
+
+      <Dialog open={!!previewImage} onOpenChange={(open) => !open && setPreviewImage(null)}>
+        <DialogContent className="max-w-[95vw] md:max-w-4xl h-[85vh] md:h-[90vh] flex flex-col p-2 sm:p-4 gap-0">
+          <DialogTitle className="sr-only">Xem chi tiết ảnh</DialogTitle>
+          <DialogDescription className="sr-only">Phóng to hình ảnh của thuốc</DialogDescription>
+          <div className="flex-1 w-full h-full overflow-hidden flex flex-col justify-center bg-black/5 rounded-md mt-6">
+            {previewImage && (
+              <img src={previewImage} alt="Preview" className="w-full h-full object-contain" />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

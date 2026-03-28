@@ -6,6 +6,7 @@ import MedicineCard from "@/components/MedicineCard";
 import MedicineDetail from "@/components/MedicineDetail";
 import { getMedicines, Medicine } from "@/lib/mockStore";
 
+
 const Index = () => {
   const [search, setSearch] = useState("");
   const [selectedMedicine, setSelectedMedicine] = useState<Medicine | null>(null);
@@ -35,7 +36,7 @@ const Index = () => {
 
   if (selectedMedicine) {
     return (
-      <div className="min-h-screen bg-background py-8 px-4">
+      <div className="min-h-screen bg-background py-4 sm:py-8 px-2 sm:px-4">
         <MedicineDetail medicine={selectedMedicine} onBack={() => setSelectedMedicine(null)} />
       </div>
     );
@@ -44,19 +45,19 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="bg-card border-b border-border">
-        <div className="max-w-5xl mx-auto px-4 py-6 flex items-center gap-4">
+        <div className="max-w-5xl mx-auto px-4 py-4 sm:py-6 flex flex-col sm:flex-row items-center sm:items-center gap-3 sm:gap-4 text-center sm:text-left">
           <div className="p-3 rounded-2xl bg-primary/10">
-            <Pill className="h-7 w-7 text-primary" />
+            <Pill className="h-6 w-6 sm:h-7 sm:w-7 text-primary" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-foreground">Tra cứu thông tin thuốc</h1>
-            <p className="text-sm text-muted-foreground">Tổ Dược Lâm Sàng — Khoa Dược — Bệnh viện Đa khoa tỉnh Tuyên Quang</p>
+            <h1 className="text-lg sm:text-xl font-bold text-foreground" >Tra cứu thông tin thuốc</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Tổ Dược Lâm Sàng — Khoa Dược — Bệnh viện Đa khoa tỉnh Tuyên Quang</p>
           </div>
         </div>
       </header>
 
-      <div className="max-w-5xl mx-auto px-4 py-8">
-        <div className="flex justify-center mb-8">
+      <div className="max-w-5xl mx-auto px-4 py-6 sm:py-8">
+        <div className="flex justify-center mb-6 sm:mb-8">
           <MedicineSearch value={search} onChange={setSearch} />
         </div>
 
@@ -64,12 +65,12 @@ const Index = () => {
           <p className="text-center py-16 text-muted-foreground">Đang tải dữ liệu...</p>
         ) : filtered.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">
-            <Pill className="h-12 w-12 mx-auto mb-3 text-muted-foreground/40" />
-            <p className="text-lg font-medium">Không tìm thấy thuốc nào</p>
-            <p className="text-sm mt-1">Thử tìm với từ khoá khác</p>
+            <Pill className="h-10 w-10 sm:h-12 sm:w-12 mx-auto mb-3 text-muted-foreground/40" />
+            <p className="text-base sm:text-lg font-medium">Không tìm thấy thuốc nào</p>
+            <p className="text-xs sm:text-sm mt-1">Thử tìm với từ khoá khác</p>
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {filtered.map((medicine) => (
               <MedicineCard key={medicine.id} medicine={medicine} onClick={setSelectedMedicine} />
             ))}

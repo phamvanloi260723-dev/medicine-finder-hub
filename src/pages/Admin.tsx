@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Pill, Plus, LogOut, Pencil, Trash2 } from "lucide-react";
+import { Pill, Plus, LogOut, Pencil, Trash2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -55,16 +55,13 @@ const Admin = () => {
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-primary/10">
-              <Pill className="h-6 w-6 text-primary" />
+              <Pill className="h-6 w-6 text-primary cursor-pointer" onClick={() => navigate("/")} />
             </div>
-            <h1 className="text-lg font-bold text-foreground">Quản lý thuốc</h1>
+            <h1 className="text-lg font-bold text-foreground cursor-pointer">Quản lý thuốc</h1>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => navigate("/")}>
-              Xem trang chủ
-            </Button>
             <Button variant="ghost" size="sm" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-1" /> Đăng xuất
+              <LogOut className="h-4 w-4 mr-1" />
             </Button>
           </div>
         </div>
@@ -81,7 +78,10 @@ const Admin = () => {
         </div>
 
         {loading ? (
-          <p className="text-muted-foreground text-center py-10">Đang tải...</p>
+          <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+            <Loader2 className="h-8 w-8 text-primary animate-spin mb-3" />
+            <p className="text-base font-medium">Đang tải danh sách thuốc...</p>
+          </div>
         ) : medicines.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">
             <Pill className="h-12 w-12 mx-auto mb-3 text-muted-foreground/40" />

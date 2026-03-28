@@ -83,15 +83,15 @@ export const getMedicineById = (id: string): Medicine | undefined => {
   return getMedicines().find((m) => m.id === id);
 };
 
-export const addMedicine = (medicine: Omit<Medicine, "id" | "created_at" | "updated_at" | "images" | "documents">) => {
+export const addMedicine = (medicine: Omit<Medicine, "id" | "created_at" | "updated_at">) => {
   const medicines = getMedicines();
   const newMed: Medicine = {
     ...medicine,
     id: Date.now().toString(),
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    images: [],
-    documents: [],
+    images: medicine.images || [],
+    documents: medicine.documents || [],
   };
   medicines.push(newMed);
   saveMedicines(medicines);
